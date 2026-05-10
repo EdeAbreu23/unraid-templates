@@ -1,0 +1,21 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>SlateLedger</Name>
+  <Repository>ghcr.io/edeabreu23/slateledger:latest</Repository>
+  <Registry>https://github.com/EdeAbreu23/SlateLedger/pkgs/container/slateledger</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/EdeAbreu23/SlateLedger/issues</Support>
+  <Project>https://github.com/EdeAbreu23/SlateLedger</Project>
+  <Overview>Self-hosted household debt and repayment tracking application for tracking balances, payments, repayment agreements, and payment plans.</Overview>
+  <Category>Productivity: Finance:</Category>
+  <WebUI>http://[IP]:[PORT:3010]</WebUI>
+  <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/slateledger.png</Icon>
+
+  <Config Name="Web UI Port" Target="3000" Default="3010" Mode="tcp" Description="SlateLedger web interface port." Type="Port" Display="always" Required="true" Mask="false">3010</Config>
+  <Config Name="AppData Path" Target="/app/data" Default="/mnt/user/appdata/slateledger" Mode="rw" Description="Persistent application data path." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/slateledger</Config>
+  <Config Name="PostgreSQL Connection String" Target="ConnectionStrings__DefaultConnection" Default="Host=postgresql;Port=5432;Database=slateledger;Username=slateledger;Password=changeme" Mode="" Description="PostgreSQL database connection string." Type="Variable" Display="always" Required="true" Mask="true">Host=postgresql;Port=5432;Database=slateledger;Username=slateledger;Password=changeme</Config>
+  <Config Name="Apply Migrations On Startup" Target="APPLY_MIGRATIONS_ON_STARTUP" Default="true" Mode="" Description="Automatically apply EF Core migrations on startup." Type="Variable" Display="advanced" Required="true" Mask="false">true</Config>
+</Container>
