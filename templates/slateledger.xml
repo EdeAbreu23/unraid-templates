@@ -12,7 +12,7 @@
   <Overview>Self-hosted household debt and repayment tracking application for tracking balances, payments, repayment agreements, and payment plans.</Overview>
   <Category>Productivity: Finance:</Category>
   <WebUI>http://[IP]:[PORT:3010]</WebUI>
-  <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/slateledger.png</Icon>
+  <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/slateledger-icon.png</Icon>
 
   <Config Name="Web UI Port" Target="3000" Default="3010" Mode="tcp" Description="SlateLedger web interface port." Type="Port" Display="always" Required="true" Mask="false">3010</Config>
   <Config Name="AppData Path" Target="/app/data" Default="/mnt/user/appdata/slateledger" Mode="rw" Description="Persistent application data path." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/slateledger</Config>
