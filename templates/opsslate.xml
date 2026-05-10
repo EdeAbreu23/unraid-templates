@@ -12,7 +12,7 @@
   <Overview>Lightweight self-hosted automation operations dashboard for Unraid and homelabs. Monitor automation jobs, health, dependencies, stale states, and errors from one clean dashboard.</Overview>
   <Category>Tools: Utilities:</Category>
   <WebUI>http://[IP]:[PORT:8099]</WebUI>
-  <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/opsslate.png</Icon>
+  <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/opsslate-icon.png</Icon>
 
   <Config Name="Web UI Port" Target="8099" Default="8099" Mode="tcp" Description="OpsSlate web interface port." Type="Port" Display="always" Required="true" Mask="false">8099</Config>
   <Config Name="Config Path" Target="/config" Default="/mnt/user/appdata/opsslate/config" Mode="rw" Description="Path containing OpsSlate jobs.yml configuration." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/opsslate/config</Config>
