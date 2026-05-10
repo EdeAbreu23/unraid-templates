@@ -1,0 +1,14 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>SlateWatch</Name>
+  <Repository>ghcr.io/edeabreu23/slatewatch:latest</Repository>
+  <Network>bridge</Network>
+  <Support>https://github.com/EdeAbreu23/slatewatch/issues</Support>
+  <Project>https://github.com/EdeAbreu23/slatewatch</Project>
+  <Overview>Self-hosted movie and TV tracking platform for watchlists, watched history, releases, and personal media tracking.</Overview>
+  <Category>MediaApp:Tools:</Category>
+  <WebUI>http://[IP]:[PORT:3020]</WebUI>
+  <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/slatewatch.png</Icon>
+
+  <Config Name="Web UI Port" Target="3000" Default="3020" Mode="tcp" Description="SlateWatch web interface port." Type="Port" Display="always" Required="true" Mask="false">3020</Config>
+</Container>
