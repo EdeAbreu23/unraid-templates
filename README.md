@@ -4,6 +4,34 @@ Public Unraid template and asset repository for self-hosted apps maintained by E
 
 This repo exists so Unraid can fetch public assets such as Docker icons and, later, install templates without exposing the private source repositories for the apps themselves.
 
+## Status
+
+Docs baseline ready. This repo is a public template and asset support repo only; it is not an application runtime.
+
+## Repository ownership
+
+Belongs here:
+
+- Public Unraid XML templates.
+- Public app icons and asset README files.
+- Template validation notes and public install metadata.
+
+Does not belong here:
+
+- Product implementation docs for private app repos.
+- Private deployment values, private app URLs, secrets, tokens, or local `.env` contents.
+- Runtime evidence for the applications themselves.
+
+## Validation
+
+Use local template and asset inspection plus `git diff --check`. Do not deploy or publish as part of documentation cleanup.
+
+## Documentation map
+
+- [Docs](docs/README.md)
+- [Images](images/README.md)
+- [Templates](templates/README.md)
+
 ## Planned apps
 
 | App | Public icon path | Template path |
@@ -24,3 +52,4 @@ templates/
   slateledger.xml
   slatewatch.xml
   opsslate.xml
+```
