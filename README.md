@@ -24,7 +24,13 @@ Does not belong here:
 
 ## Validation
 
-Use local template and asset inspection plus `git diff --check`. Do not deploy or publish as part of documentation cleanup.
+Use the local validator plus `git diff --check`. Do not deploy, import into Unraid, or publish as part of template validation.
+
+```bash
+bash scripts/validate-templates.sh
+```
+
+The validator parses every XML template, checks required metadata fields, confirms template icon URLs point at tracked files under `images/`, rejects privileged or host-network defaults, and rejects secret-like defaults that are not blank or placeholder-only. Mutable image tags are reported as warnings because update policy is still a release decision for each app.
 
 ## Documentation map
 
@@ -52,4 +58,6 @@ templates/
   slateledger.xml
   slatewatch.xml
   opsslate.xml
+scripts/
+  validate-templates.sh
 ```
