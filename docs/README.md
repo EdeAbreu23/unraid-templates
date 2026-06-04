@@ -18,6 +18,14 @@ This folder can hold durable documentation for the public Unraid template and as
 
 Use local XML/image inspection and `git diff --check`. Do not publish or deploy from documentation cleanup work.
 
+Policy references:
+
+- [Image Tag And Update Policy](IMAGE_TAG_UPDATE_POLICY.md)
+- [Manual Unraid Smoke Checklist](UNRAID_SMOKE_CHECKLIST.md)
+
+Static validation and XML inspection are not Unraid runtime PASS. Runtime PASS
+requires a real approved import/render run with redacted evidence.
+
 ## Current Status
 
 Docs baseline ready.
