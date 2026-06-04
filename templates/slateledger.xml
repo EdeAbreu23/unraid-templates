@@ -16,6 +16,6 @@
 
   <Config Name="Web UI Port" Target="3000" Default="3010" Mode="tcp" Description="SlateLedger web interface port." Type="Port" Display="always" Required="true" Mask="false">3010</Config>
   <Config Name="AppData Path" Target="/app/data" Default="/mnt/user/appdata/slateledger" Mode="rw" Description="Persistent application data path." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/slateledger</Config>
-  <Config Name="PostgreSQL Connection String" Target="ConnectionStrings__DefaultConnection" Default="Host=postgresql;Port=5432;Database=slateledger;Username=slateledger;Password=changeme" Mode="" Description="PostgreSQL database connection string." Type="Variable" Display="always" Required="true" Mask="true">Host=postgresql;Port=5432;Database=slateledger;Username=slateledger;Password=changeme</Config>
+  <Config Name="PostgreSQL Connection String" Target="ConnectionStrings__DefaultConnection" Default="" Mode="" Description="Required PostgreSQL database connection string. Enter your own host, database, username, and password; do not publish real credentials in template changes." Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="Apply Migrations On Startup" Target="APPLY_MIGRATIONS_ON_STARTUP" Default="true" Mode="" Description="Automatically apply EF Core migrations on startup." Type="Variable" Display="advanced" Required="true" Mask="false">true</Config>
 </Container>

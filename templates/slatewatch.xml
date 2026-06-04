@@ -2,7 +2,11 @@
 <Container version="2">
   <Name>SlateWatch</Name>
   <Repository>ghcr.io/edeabreu23/slatewatch:latest</Repository>
+  <Registry>https://github.com/EdeAbreu23/slatewatch/pkgs/container/slatewatch</Registry>
   <Network>bridge</Network>
+  <MyIP/>
+  <Shell>bash</Shell>
+  <Privileged>false</Privileged>
   <Support>https://github.com/EdeAbreu23/slatewatch/issues</Support>
   <Project>https://github.com/EdeAbreu23/slatewatch</Project>
   <Overview>Self-hosted movie and TV tracking platform for watchlists, watched history, releases, and personal media tracking.</Overview>

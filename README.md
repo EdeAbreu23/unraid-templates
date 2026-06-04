@@ -36,17 +36,17 @@ Use local template and asset inspection plus `git diff --check`. Do not deploy o
 
 | App | Public icon path | Template path |
 | --- | --- | --- |
-| SlateLedger | `images/slateledger.png` | `templates/slateledger.xml` |
-| SlateWatch | `images/slatewatch.png` | `templates/slatewatch.xml` |
-| OpsSlate | `images/opsslate.png` | `templates/opsslate.xml` |
+| SlateLedger | `images/slateledger-icon.png` | `templates/slateledger.xml` |
+| SlateWatch | `images/slatewatch-icon.png` | `templates/slatewatch.xml` |
+| OpsSlate | `images/opsslate-icon.png` | `templates/opsslate.xml` |
 
 ## Current structure
 
 ```text
 images/
-  slateledger.png
-  slatewatch.png
-  opsslate.png
+  slateledger-icon.png
+  slatewatch-icon.png
+  opsslate-icon.png
 
 templates/
   slateledger.xml
