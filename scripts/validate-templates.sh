@@ -46,7 +46,8 @@ trusted_network_warning_terms = {
         "authenticated reverse proxy",
     ),
     "SlateWatch": (
-        "no app-native authentication",
+        "requires app-native administrator authentication",
+        "basic credentials require https",
         "never expose this port directly to the public internet",
         "trusted lan",
         "vpn",

@@ -29,10 +29,9 @@ Templates must use bridge networking by default, set `Privileged` to `false`, av
 
 ## Trusted-network applications
 
-OpsSlate and SlateWatch expose control operations. OpsSlate requires its
-app-native administrator username/password and HTTPS when Basic credentials
-cross an untrusted network. SlateWatch does not currently provide app-native
-authentication. Both template overviews must prominently state that they are
+OpsSlate and SlateWatch expose control operations. Both require app-native
+administrator credentials and HTTPS when Basic credentials cross an untrusted
+network. Both template overviews must prominently state that they are
 trusted-network applications and must never be exposed directly to the public
 internet.
 
