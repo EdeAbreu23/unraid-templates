@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/EdeAbreu23/slatewatch/issues</Support>
   <Project>https://github.com/EdeAbreu23/slatewatch</Project>
-  <Overview>Self-hosted movie and TV tracking platform for watchlists, watched history, releases, and personal media tracking.</Overview>
+  <Overview>SECURITY: Trusted-network use only. SlateWatch has no app-native authentication and can trigger media-stack control actions. Never expose this port directly to the public internet. Restrict access with a trusted LAN, VPN, firewall allowlist, or authenticated reverse proxy. Self-hosted movie and TV tracking platform for watchlists, watched history, releases, and personal media tracking.</Overview>
   <Category>MediaApp:Tools:</Category>
   <WebUI>http://[IP]:[PORT:3020]</WebUI>
   <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/slatewatch-icon.png</Icon>
