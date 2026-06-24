@@ -9,7 +9,7 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/EdeAbreu23/OpsSlate/issues</Support>
   <Project>https://github.com/EdeAbreu23/OpsSlate</Project>
-  <Overview>Lightweight self-hosted automation operations dashboard for Unraid and homelabs. Monitor automation jobs, health, dependencies, stale states, and errors from one clean dashboard.</Overview>
+  <Overview>SECURITY: Trusted-network use only. OpsSlate requires app-native administrator authentication and can modify automation configuration. Basic credentials require HTTPS on untrusted networks. Never expose this port directly to the public internet. Restrict access with a trusted LAN, VPN, firewall allowlist, or authenticated reverse proxy. Lightweight self-hosted automation operations dashboard for Unraid and homelabs.</Overview>
   <Category>Tools: Utilities:</Category>
   <WebUI>http://[IP]:[PORT:8099]</WebUI>
   <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/opsslate-icon.png</Icon>
@@ -17,6 +17,8 @@
   <Config Name="Web UI Port" Target="8099" Default="8099" Mode="tcp" Description="OpsSlate web interface port." Type="Port" Display="always" Required="true" Mask="false">8099</Config>
   <Config Name="Config Path" Target="/config" Default="/mnt/user/appdata/opsslate/config" Mode="rw" Description="Path containing OpsSlate jobs.yml configuration." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/opsslate/config</Config>
   <Config Name="Status Path" Target="/status" Default="/mnt/user/appdata/opsslate/status" Mode="rw" Description="Path containing per-job status.json files." Type="Path" Display="always" Required="true" Mask="false">/mnt/user/appdata/opsslate/status</Config>
+  <Config Name="Admin Username" Target="OPSSLATE_ADMIN_USERNAME" Default="admin" Mode="" Description="Required app-native administrator username." Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
+  <Config Name="Admin Password" Target="OPSSLATE_ADMIN_PASSWORD" Default="" Mode="" Description="Required administrator password with at least 12 characters. Store it only in Unraid configuration and never publish it." Type="Variable" Display="always" Required="true" Mask="true"></Config>
   <Config Name="Config File Path" Target="HAC_CONFIG_PATH" Default="/config/jobs.yml" Mode="" Description="Internal path to jobs.yml. Kept for backward compatibility." Type="Variable" Display="advanced" Required="true" Mask="false">/config/jobs.yml</Config>
   <Config Name="Status Root Path" Target="HAC_STATUS_ROOT" Default="/status" Mode="" Description="Internal status root path. Kept for backward compatibility." Type="Variable" Display="advanced" Required="true" Mask="false">/status</Config>
   <Config Name="Docker Network Name" Target="HOMELAB_AUTOMATION_CENTER_DOCKER_NETWORK" Default="media_network" Mode="" Description="Docker network used by monitored homelab containers. Kept for backward compatibility." Type="Variable" Display="advanced" Required="false" Mask="false">media_network</Config>

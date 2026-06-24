@@ -9,10 +9,12 @@
   <Privileged>false</Privileged>
   <Support>https://github.com/EdeAbreu23/slatewatch/issues</Support>
   <Project>https://github.com/EdeAbreu23/slatewatch</Project>
-  <Overview>Self-hosted movie and TV tracking platform for watchlists, watched history, releases, and personal media tracking.</Overview>
+  <Overview>SECURITY: Trusted-network use only. SlateWatch requires app-native administrator authentication and can trigger media-stack control actions. Basic credentials require HTTPS on untrusted networks. Never expose this port directly to the public internet. Restrict access with a trusted LAN, VPN, firewall allowlist, or authenticated reverse proxy. Self-hosted movie and TV tracking platform for watchlists, watched history, releases, and personal media tracking.</Overview>
   <Category>MediaApp:Tools:</Category>
   <WebUI>http://[IP]:[PORT:3020]</WebUI>
   <Icon>https://raw.githubusercontent.com/EdeAbreu23/unraid-templates/main/images/slatewatch-icon.png</Icon>
 
   <Config Name="Web UI Port" Target="3000" Default="3020" Mode="tcp" Description="SlateWatch web interface port." Type="Port" Display="always" Required="true" Mask="false">3020</Config>
+  <Config Name="Admin Username" Target="Security__Admin__Username" Default="admin" Mode="" Description="Required app-native administrator username." Type="Variable" Display="always" Required="true" Mask="false">admin</Config>
+  <Config Name="Admin Password" Target="Security__Admin__Password" Default="" Mode="" Description="Required administrator password with at least 12 characters. Store it only in Unraid configuration and never publish it." Type="Variable" Display="always" Required="true" Mask="true"></Config>
 </Container>

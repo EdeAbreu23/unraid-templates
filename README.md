@@ -40,6 +40,15 @@ Manual Unraid import/render checks must use
 [Manual Unraid Smoke Checklist](docs/UNRAID_SMOKE_CHECKLIST.md). Do not claim
 Unraid runtime PASS without real approved import/render evidence.
 
+## Security boundary for control applications
+
+The OpsSlate and SlateWatch templates publish application ports for trusted
+self-hosted use. Both require app-native administrator credentials. Never expose
+either port directly to the public internet. Deploy them only on a trusted LAN
+or behind a VPN, firewall allowlist, authenticated reverse proxy, or equivalent
+access-control boundary. Use HTTPS whenever Basic credentials cross an
+untrusted network. The template overview repeats these warnings during install.
+
 ## Documentation map
 
 - [Docs](docs/README.md)

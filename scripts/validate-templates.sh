@@ -35,6 +35,26 @@ placeholder_terms = re.compile(
     re.IGNORECASE,
 )
 private_network = re.compile(r"(192\.168\.|10\.\d{1,3}\.|172\.(1[6-9]|2\d|3[01])\.)")
+trusted_network_warning_terms = {
+    "OpsSlate": (
+        "requires app-native administrator authentication",
+        "basic credentials require https",
+        "never expose this port directly to the public internet",
+        "trusted lan",
+        "vpn",
+        "firewall allowlist",
+        "authenticated reverse proxy",
+    ),
+    "SlateWatch": (
+        "requires app-native administrator authentication",
+        "basic credentials require https",
+        "never expose this port directly to the public internet",
+        "trusted lan",
+        "vpn",
+        "firewall allowlist",
+        "authenticated reverse proxy",
+    ),
+}
 
 errors: list[str] = []
 warnings: list[str] = []
@@ -71,6 +91,15 @@ for path in template_paths:
         errors.append(f"{path}: icon URL does not include a filename")
     elif not Path("images", icon_name).is_file():
         errors.append(f"{path}: icon URL references missing images/{icon_name}")
+
+    app_name = (root.findtext("Name") or "").strip()
+    overview = (root.findtext("Overview") or "").strip().lower()
+    if app_name in trusted_network_warning_terms:
+        for warning_term in trusted_network_warning_terms[app_name]:
+            if warning_term not in overview:
+                errors.append(
+                    f"{path}: {app_name} overview must include trusted-network warning term {warning_term!r}"
+                )
 
     for config in root.findall("Config"):
         name = config.attrib.get("Name", "")
