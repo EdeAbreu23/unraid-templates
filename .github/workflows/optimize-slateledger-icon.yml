@@ -1,0 +1,43 @@
+name: Optimize SlateLedger icon
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - .github/workflows/optimize-slateledger-icon.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  optimize:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install ImageMagick
+        run: sudo apt-get update && sudo apt-get install -y imagemagick
+
+      - name: Resize and optimize icon
+        run: |
+          convert images/slateledger-icon.png \
+            -resize 256x256 \
+            -strip \
+            images/slateledger-icon.png
+          identify images/slateledger-icon.png
+          ls -lh images/slateledger-icon.png
+
+      - name: Commit optimized icon
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add images/slateledger-icon.png
+          if git diff --cached --quiet; then
+            echo "Icon is already optimized."
+            exit 0
+          fi
+          git commit -m "Optimize SlateLedger Unraid icon"
+          git push
