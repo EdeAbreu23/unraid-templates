@@ -3,6 +3,8 @@
 import json
 import os
 import socket
+import signal
+import time
 import hashlib
 from pathlib import Path
 import shutil
@@ -64,6 +66,151 @@ class RunnerSafety(unittest.TestCase):
         self.assertEqual(r['steps'][0]['status'],'ADVISORY_FAIL')
         self.assertEqual(r['steps'][0]['exit_code'],1)
         self.assertEqual(r['advisory_failures'],['informational-audit'])
+    def test_sigterm_stops_descendants_finalizes_failure_and_runs_cleanup(self):
+        ready = self.base/'ready'
+        survived = self.base/'survived'
+        cleanup = self.base/'cleanup'
+        child = 'import time,pathlib; time.sleep(1); pathlib.Path('+repr(str(survived))+').write_text("survived")'
+        command = 'import subprocess,sys,pathlib,time; subprocess.Popen([sys.executable,"-c",'+repr(child)+']); pathlib.Path('+repr(str(ready))+').touch(); time.sleep(60)'
+        spec = {'steps':[{'name':'interrupted','command':[sys.executable,'-c',command]}],
+                'cleanup':[{'name':'cleanup','command':[sys.executable,'-c','import time,pathlib; time.sleep(1.2); assert not pathlib.Path('+repr(str(survived))+').exists(); pathlib.Path('+repr(str(cleanup))+').touch()']}]}
+        (self.root/'local-ci.json').write_text(json.dumps(spec))
+        subprocess.run(['git','add','.'],cwd=self.root,check=True)
+        subprocess.run(['git','commit','-qm','Synthetic signal fixture'],cwd=self.root,check=True)
+        out = self.base/'evidence'
+        process = subprocess.Popen([sys.executable,str(self.root/'scripts/local-ci.py'),'--report-dir',str(out),'--authorization','Synthetic fixture only'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            deadline = time.monotonic()+10
+            while not ready.exists() and process.poll() is None and time.monotonic()<deadline:
+                time.sleep(0.02)
+            self.assertTrue(ready.exists(), 'Stage did not start')
+            process.send_signal(signal.SIGTERM)
+            stdout, stderr = process.communicate(timeout=15)
+            self.assertNotEqual(process.returncode,0,(stdout,stderr))
+            report = json.loads((out/'report.json').read_text())
+            self.assertEqual(report['status'],'FAIL')
+            self.assertEqual(report['steps'][0]['status'],'FAIL')
+            self.assertIsNotNone(report['steps'][0]['exit_code'])
+            self.assertEqual(report['steps'][1]['status'],'PASS')
+            self.assertTrue(cleanup.exists())
+            self.assertFalse(survived.exists())
+            self.assertIn('SIGTERM',report['failure'])
+        finally:
+            if process.poll() is None:
+                process.kill(); process.communicate()
+
+    def test_sigterm_during_cleanup_finishes_all_cleanup_and_finalizes_failure(self):
+        ready = self.base/'cleanup-ready'
+        completed = self.base/'cleanup-completed'
+        spec = {'steps':[], 'cleanup':[
+            {'name':'first','command':[sys.executable,'-c','import pathlib,time; pathlib.Path('+repr(str(ready))+').touch(); time.sleep(0.3)']},
+            {'name':'second','command':[sys.executable,'-c','import pathlib; pathlib.Path('+repr(str(completed))+').touch()']}]}
+        (self.root/'local-ci.json').write_text(json.dumps(spec))
+        subprocess.run(['git','add','.'],cwd=self.root,check=True)
+        subprocess.run(['git','commit','-qm','Synthetic cleanup signal fixture'],cwd=self.root,check=True)
+        out = self.base/'evidence'
+        process = subprocess.Popen([sys.executable,str(self.root/'scripts/local-ci.py'),'--report-dir',str(out),'--authorization','Synthetic fixture only'],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True)
+        try:
+            deadline = time.monotonic()+10
+            while not ready.exists() and process.poll() is None and time.monotonic()<deadline:
+                time.sleep(0.01)
+            self.assertTrue(ready.exists(), 'Cleanup did not start')
+            process.send_signal(signal.SIGTERM)
+            stdout, stderr = process.communicate(timeout=15)
+            self.assertNotEqual(process.returncode,0,(stdout,stderr))
+            report = json.loads((out/'report.json').read_text())
+            self.assertEqual(report['status'],'FAIL')
+            self.assertEqual([step['status'] for step in report['steps']],['PASS','PASS'])
+            self.assertTrue(completed.exists())
+            self.assertIn('during resource cleanup',report['failure'])
+            self.assertIn('finished_at',report)
+        finally:
+            if process.poll() is None:
+                process.kill(); process.communicate()
+
+    def test_repository_evidence_never_reads_or_records_remote_credentials(self):
+        subprocess.run(['git','remote','set-url','origin','https://synthetic-user:synthetic-token@example.invalid/repo?synthetic-query#synthetic-fragment'],cwd=self.root,check=True)
+        result, report = self.run_manifest({'steps':[]})
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(report['repository'],'EdeAbreu23/unraid-templates')
+        evidence = json.dumps(report)+result.stdout+result.stderr
+        for value in ['synthetic-user','synthetic-token','synthetic-query','synthetic-fragment']:
+            self.assertNotIn(value,evidence)
+
+    def test_repository_evidence_does_not_require_an_origin_remote(self):
+        subprocess.run(['git','remote','remove','origin'],cwd=self.root,check=True)
+        result, report = self.run_manifest({'steps':[]})
+        self.assertEqual(result.returncode,0,result.stderr)
+        self.assertEqual(report['repository'],'EdeAbreu23/unraid-templates')
+        self.assertEqual(report['status'],'PASS')
+
+    def test_sigterm_during_process_start_cannot_orphan_stage_or_lose_report(self):
+        marker = self.base/'startup-survivor'
+        spec = {'steps':[{'name':'startup','command':[sys.executable,'-c','import time,pathlib; time.sleep(0.5); pathlib.Path('+repr(str(marker))+').touch(); time.sleep(60)']}]}
+        (self.root/'local-ci.json').write_text(json.dumps(spec))
+        subprocess.run(['git','add','.'],cwd=self.root,check=True)
+        subprocess.run(['git','commit','-qm','Synthetic startup signal fixture'],cwd=self.root,check=True)
+        out = self.base/'evidence'
+        runner = self.root/'scripts/local-ci.py'
+        # Inject TERM after the OS child exists but before Popen returns its handle.
+        wrapper = ('import os,signal,subprocess,runpy,sys; real=subprocess.Popen\n'
+                   'def start(*args,**kwargs):\n'
+                   ' p=real(*args,**kwargs)\n'
+                   ' if kwargs.get("start_new_session"): os.kill(os.getpid(),signal.SIGTERM)\n'
+                   ' return p\n'
+                   'subprocess.Popen=start\n'
+                   'sys.argv='+repr([str(runner),'--report-dir',str(out),'--authorization','Synthetic fixture only'])+'\n'
+                   'runpy.run_path('+repr(str(runner))+',run_name="__main__")')
+        result = subprocess.run([sys.executable,'-c',wrapper],capture_output=True,text=True,timeout=15)
+        self.assertNotEqual(result.returncode,0)
+        report = json.loads((out/'report.json').read_text())
+        self.assertEqual(report['status'],'FAIL')
+        self.assertEqual(report['steps'][0]['status'],'FAIL')
+        self.assertIsNotNone(report['steps'][0]['exit_code'])
+        self.assertIn('finished_at',report)
+        self.assertNotIn('UnboundLocalError',result.stderr)
+        time.sleep(0.7)
+        self.assertFalse(marker.exists())
+
+    def test_sigterm_during_group_teardown_cannot_skip_kill_escalation(self):
+        ready = self.base/'descendant-ready'
+        marker = self.base/'teardown-survivor'
+        child = 'import signal,pathlib,time; signal.signal(signal.SIGTERM,signal.SIG_IGN); pathlib.Path('+repr(str(ready))+').touch(); time.sleep(0.7); pathlib.Path('+repr(str(marker))+').touch(); time.sleep(60)'
+        parent = 'import subprocess,sys,pathlib,time; subprocess.Popen([sys.executable,"-c",'+repr(child)+']); ready=pathlib.Path('+repr(str(ready))+')\nwhile not ready.exists(): time.sleep(0.01)'
+        spec = {'steps':[{'name':'teardown','command':[sys.executable,'-c',parent]}]}
+        (self.root/'local-ci.json').write_text(json.dumps(spec))
+        subprocess.run(['git','add','.'],cwd=self.root,check=True)
+        subprocess.run(['git','commit','-qm','Synthetic teardown signal fixture'],cwd=self.root,check=True)
+        out = self.base/'evidence'
+        runner = self.root/'scripts/local-ci.py'
+        wrapper = ('import os,signal,runpy,sys; real=os.killpg; sent=False\n'
+                   'def stop(pid,sig):\n'
+                   ' global sent\n'
+                   ' result=real(pid,sig)\n'
+                   ' if sig==signal.SIGTERM and not sent: sent=True; os.kill(os.getpid(),signal.SIGTERM)\n'
+                   ' return result\n'
+                   'os.killpg=stop\n'
+                   'sys.argv='+repr([str(runner),'--report-dir',str(out),'--authorization','Synthetic fixture only'])+'\n'
+                   'runpy.run_path('+repr(str(runner))+',run_name="__main__")')
+        result = subprocess.run([sys.executable,'-c',wrapper],capture_output=True,text=True,timeout=15)
+        self.assertNotEqual(result.returncode,0)
+        report = json.loads((out/'report.json').read_text())
+        self.assertEqual(report['status'],'FAIL')
+        self.assertEqual(report['steps'][0]['status'],'FAIL')
+        self.assertIn('finished_at',report)
+        time.sleep(0.9)
+        self.assertFalse(marker.exists())
+
+    def test_committed_whitespace_is_rejected_without_origin_or_dirty_files(self):
+        (self.root/'committed.txt').write_text('synthetic trailing whitespace \n')
+        subprocess.run(['git','add','committed.txt'],cwd=self.root,check=True)
+        subprocess.run(['git','remote','remove','origin'],cwd=self.root,check=True)
+        result, report = self.run_manifest({'steps':[{'name':'whitespace','command':['git','diff','--check','4b825dc642cb6eb9a060e54bf8d69288fbee4904','HEAD']}]})
+        self.assertNotEqual(result.returncode,0)
+        self.assertEqual(report['source_status'],'')
+        self.assertEqual(report['status'],'FAIL')
+        self.assertEqual(report['steps'][0]['status'],'FAIL')
+
     def test_wrong_tool_version_fails_closed(self):
         result,r=self.run_manifest({'steps':[{'name':'pin','command':[sys.executable,'-c','print("wrong")'],'expected_output':'right'}]})
         self.assertNotEqual(result.returncode,0);self.assertEqual(r['status'],'FAIL')

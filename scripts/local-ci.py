@@ -32,7 +32,7 @@ def main():
     os.umask(0o077)
     report_dir.mkdir(parents=True, exist_ok=False)
     git = lambda *a: subprocess.check_output(['git', *a], cwd=root, text=True).strip()
-    report = {'schema': 1, 'repository': git('remote', 'get-url', 'origin'),
+    report = {'schema': 1, 'repository': 'EdeAbreu23/unraid-templates',
               'commit': git('rev-parse', 'HEAD'), 'source_status': git('status', '--porcelain'),
               'started_at': utc(), 'os': platform.platform(), 'machine': platform.machine(),
               'python': platform.python_version(), 'status': 'RUNNING', 'steps': [],
@@ -90,12 +90,31 @@ def main():
             env[name] = os.environ[name]
     env.update({k:v.replace('${REPORT}', str(report_dir)) for k,v in spec.get('environment', {}).items()})
     env['PATH']=os.pathsep.join([v.replace('${REPORT}',str(report_dir)) for v in spec.get('path_prepend',[])]+[env.get('PATH','')])
+    cleanup_started = False
+    starting_process = False
+    stopping_process = False
+    termination_requested = False
+    def terminate(_signum, _frame):
+        nonlocal termination_requested
+        termination_requested = True
+        # Ignore repeat TERM requests while the owned stage group and resources stop.
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        if cleanup_started:
+            # Resource cleanup already has deadlines; let it finish and fail the run.
+            report['failure'] = 'SIGTERM requested shutdown during resource cleanup'
+            save()
+            return
+        if not starting_process and not stopping_process:
+            raise KeyboardInterrupt('SIGTERM requested local CI shutdown')
+    signal.signal(signal.SIGTERM, terminate)
     states = {}
     def run(step):
+        nonlocal starting_process, stopping_process
+        process = None
         name = step['name']
         missing = [x for x in step.get('requires', []) if states.get(x) != 'PASS']
         record = {'name':name, 'command':step['command'], 'cwd':step.get('cwd','.'),
-                  'started_at':utc(), 'exit_code':None, 'timeout_seconds':step.get('timeout_seconds',21600),
+                  'started_at':utc(), 'status':'RUNNING', 'exit_code':None, 'timeout_seconds':step.get('timeout_seconds',21600),
                   'counts':{'passed':None,'failed':None,'skipped':None}}
         report['steps'].append(record)
         if missing:
@@ -110,8 +129,16 @@ def main():
         log=report_dir/(name+'.log')
         try:
             with log.open('w') as output:
-                process=subprocess.Popen(command,cwd=directory,env=env,stdout=output,stderr=subprocess.STDOUT,start_new_session=True)
                 try:
+                    # Defer TERM across Popen so the new group cannot escape before
+                    # its process handle is assigned and owned cleanup can stop it.
+                    starting_process = True
+                    try:
+                        process=subprocess.Popen(command,cwd=directory,env=env,stdout=output,stderr=subprocess.STDOUT,start_new_session=True)
+                    finally:
+                        starting_process = False
+                    if termination_requested and not cleanup_started:
+                        raise KeyboardInterrupt('SIGTERM requested local CI shutdown')
                     process.wait(timeout=step.get('timeout_seconds',21600))
                 except subprocess.TimeoutExpired:
                     record['reason']='Stage exceeded its recorded deadline.'
@@ -122,13 +149,20 @@ def main():
                 finally:
                     # The group belongs exclusively to this stage. Stop descendants
                     # before any later resource cleanup, including after interruption.
-                    try:os.killpg(process.pid,signal.SIGTERM)
-                    except ProcessLookupError:pass
-                    try:process.wait(timeout=5)
-                    except subprocess.TimeoutExpired:pass
-                    try:os.killpg(process.pid,signal.SIGKILL)
-                    except ProcessLookupError:pass
-                    process.wait()
+                    stopping_process = True
+                    try:
+                        if process is not None:
+                            try:os.killpg(process.pid,signal.SIGTERM)
+                            except ProcessLookupError:pass
+                            try:process.wait(timeout=5)
+                            except subprocess.TimeoutExpired:pass
+                            try:os.killpg(process.pid,signal.SIGKILL)
+                            except ProcessLookupError:pass
+                            process.wait()
+                    finally:
+                        stopping_process = False
+                if termination_requested and not cleanup_started:
+                    raise KeyboardInterrupt('SIGTERM requested local CI shutdown')
                 result=process
             data=log.read_text(errors='replace')
             clean=re.sub(r'\x1b\[[0-9;]*m','',data)
@@ -146,7 +180,7 @@ def main():
             # Retain actual summaries, including separate suite counts; never invent zeros.
             record['result_lines']=[s.strip() for s in clean.splitlines() if re.search(r'\b(passed|failed|skipped|succeeded|error\(s\)|Tests:|Test Files|TOTAL:)\b',s,re.I)][-100:]
         except KeyboardInterrupt:
-            record.update(status='FAIL',reason='Stage interrupted; owned process group stopped.')
+            record.update(status='FAIL', exit_code=process.returncode if process is not None else None, reason='Stage interrupted; owned process group stopped.')
             states[name]='FAIL';save();raise
         except OSError as exc:
             record.update(status='FAIL',reason=str(exc))
@@ -159,6 +193,7 @@ def main():
     except (Exception, KeyboardInterrupt) as exc:
         report['failure']=type(exc).__name__+': '+str(exc)
     finally:
+        cleanup_started = True
         for step in spec.get('cleanup', []):
             run(step)
         report['final_commit']=git('rev-parse','HEAD')
