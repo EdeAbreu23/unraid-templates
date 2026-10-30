@@ -62,5 +62,7 @@
         "HEAD"
       ]
     }
-  ]
+  ],
+  "repository": "EdeAbreu23/unraid-templates",
+  "resource_lifecycle": "process-groups-only"
 }
