@@ -196,6 +196,13 @@ def run_main(shutdown_requested):
         report.update(status='FAIL', failure='Refusing a dirty checkout; no exact-commit pass is possible.', finished_at=utc())
         save()
         return 2
+    if spec.get('require_no_ignored_inputs'):
+        ignored = sorted(name for name in git('ls-files', '--others', '--ignored', '--exclude-standard', '-z').split('\0') if name)
+        if ignored:
+            report.update(status='FAIL', failure='Refusing pre-existing ignored inputs and build outputs; preserve them and use an owner-authorized pristine checkout.',
+                          refused_ignored_input_paths=ignored, finished_at=utc())
+            save()
+            return 2
     # Clean tracked status does not exclude ignored application/provider settings.
     # Inspect names only; never open or copy private input values into the gate.
     generated = {'node_modules', 'bin', 'obj', '.angular', 'dist', 'coverage', 'test-results', 'playwright-report', 'local-artifacts'}
@@ -236,7 +243,7 @@ def run_main(shutdown_requested):
     for name in spec.get('environment_passthrough', []):
         if name in os.environ:
             env[name] = os.environ[name]
-    env.update({k:v.replace('${REPORT}', str(report_dir)) for k,v in spec.get('environment', {}).items()})
+    env.update({k:v.replace('${REPORT}', str(report_dir)).replace('${ROOT}', str(root)) for k,v in spec.get('environment', {}).items()})
     env['PATH']=os.pathsep.join([v.replace('${REPORT}',str(report_dir)) for v in spec.get('path_prepend',[])]+[env.get('PATH','')])
     if shutdown_requested:
         return 130
@@ -251,15 +258,57 @@ def run_main(shutdown_requested):
     report['tools'] = []
     report['tool_steps'] = []
     owned_groups = set()
+    group_records = {}
+    report['unresolved_process_groups'] = []
     cleanup_started = False
     ownership_uncertain = False  # Sticky: later successful cleanup cannot clear it.
     states = {}
+    def verify_group_absence(groups):
+        # Only observe registered stage groups; never signal guessed/reused PIDs.
+        # Reaping descendants can lag SIGKILL. Bound the wait and keep heartbeats.
+        pending = set(groups) & owned_groups
+        deadline = time.monotonic() + 2.0
+        try:
+            while pending:
+                reservation.tick()
+                for pgid in tuple(pending):
+                    observation = group_records[pgid].setdefault('process_group_verification',
+                        {'checks': 0, 'absence_verified': False, 'wait_limit_seconds': 2.0})
+                    observation['checks'] += 1
+                    observation['checked_at'] = utc()
+                    try:
+                        os.killpg(pgid, 0)
+                    except ProcessLookupError:
+                        observation.update(last_observation='ABSENT', absence_verified=True)
+                        owned_groups.discard(pgid)
+                        pending.discard(pgid)
+                    except OSError as exc:
+                        observation.update(last_observation='UNKNOWN', error_type=type(exc).__name__)
+                    else:
+                        observation['last_observation'] = 'PRESENT'
+                remaining = deadline - time.monotonic()
+                if not pending or remaining <= 0:
+                    break
+                time.sleep(min(0.05, remaining))
+        except Exception as exc:
+            # A later disappearance must not erase a failed lease heartbeat.
+            report['process_group_verification_error'] = type(exc).__name__
+            raise
+        finally:
+            report['unresolved_process_groups'] = sorted(owned_groups)
+            save()
+
     def run(step, cleanup=False):
         nonlocal ownership_uncertain
         process = None
         name = step['name']
         if shutdown_requested and not cleanup:
             raise KeyboardInterrupt('Shutdown requested before stage launch')
+        if owned_groups and not cleanup:
+            report['blocked_normal_stage'] = {'name': name,
+                                             'unresolved_process_groups': sorted(owned_groups)}
+            save()
+            raise Rejected('Prior owned process group absence unverified; refusing normal stage: ' + name)
         reservation.before_stage(cleanup=cleanup)
         missing = [x for x in step.get('requires', []) if states.get(x) != 'PASS']
         record = {'name':name, 'command':step['command'], 'cwd':step.get('cwd','.'),
@@ -288,7 +337,16 @@ def run_main(shutdown_requested):
                         # Popen may have created a child without returning a handle.
                         # No guessed PID/group may be signaled or treated as absent.
                         ownership_uncertain = True
+                        record['process_group_ownership'] = 'UNKNOWN: launch handle not registered'
+                        report['process_ownership_uncertain'] = True
+                        save()
                         raise
+                    record.update(process_id=process.pid, process_group_id=process.pid,
+                                  process_group_registered_at=utc(),
+                                  process_group_ownership='start_new_session returned handle')
+                    group_records[process.pid] = record
+                    report['unresolved_process_groups'] = sorted(owned_groups)
+                    save()
                     if shutdown_requested and not cleanup_started:
                         raise KeyboardInterrupt('Shutdown requested during stage launch')
                     deadline = time.monotonic() + step.get('timeout_seconds',21600)
@@ -319,10 +377,7 @@ def run_main(shutdown_requested):
                         try:os.killpg(process.pid,signal.SIGKILL)
                         except ProcessLookupError:pass
                         process.wait()
-                        try:
-                            os.killpg(process.pid, 0)
-                        except ProcessLookupError:
-                            owned_groups.discard(process.pid)
+                        verify_group_absence({process.pid})
                 if shutdown_requested and not cleanup_started:
                     raise KeyboardInterrupt('Shutdown requested after stage cleanup')
                 result=process
@@ -374,11 +429,19 @@ def run_main(shutdown_requested):
         completed = [row for row in report['steps'] if row['name'] in completion_names]
         cleanup_verified = (len(completed) == len(completion_steps) and
                             all(row['status'] == 'PASS' and row['exit_code'] == 0 for row in completed))
+        # Recheck only still-unresolved registered groups after all owned cleanup.
+        # Absence already proved is not revisited: a recycled group is unrelated.
+        try:
+            verify_group_absence(owned_groups)
+        except Exception as exc:
+            report.setdefault('failure', 'Owned group verification uncertain: ' + type(exc).__name__)
+        if owned_groups:
+            report.setdefault('failure', 'Owned process group absence unverified')
         report['process_ownership_uncertain'] = ownership_uncertain
         if shutdown_requested:
             report['failure'] = signal.Signals(shutdown_requested[0]).name + ' requested local CI shutdown'
         try:
-            report['lease'] = dict(reservation.binding, **reservation.release(not ownership_uncertain and not owned_groups and cleanup_verified))
+            report['lease'] = dict(reservation.binding, **reservation.release(not ownership_uncertain and not owned_groups and cleanup_verified and not report.get('process_group_verification_error')))
         except Exception as exc:
             report['lease'] = dict(reservation.binding, state='RECOVERY_REQUIRED')
             report['failure'] = 'lease release uncertain: ' + type(exc).__name__
